@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Linear Algebra Lab — Explore mathematics through space</title>
+  <meta name="description" content="A visual, simulation-first linear algebra laboratory. Manipulate vectors, deform coordinate grids with matrices, and develop intuitive geometric understanding from zero.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Three.js and OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <!-- WEBGL FALLBACK NOTICE -->
+  <div id="webglFallback" class="webgl-fallback-screen" style="display:none;">
+    <div class="webgl-fallback-card">
+      <div class="webgl-fallback-icon">⚠️</div>
+      <h2>3D Simulation Unavailable</h2>
+      <p>Your browser or graphics hardware does not appear to support WebGL. Please ensure hardware acceleration is enabled or try a modern version of Chrome, Edge, Safari, or Firefox.</p>
+    </div>
+  </div>
+
+  <!-- 3D HERO VIEWPORT (100% Full Canvas) -->
+  <div id="viewport">
+    <canvas id="canvas3d"></canvas>
+  </div>
+
+  <!-- TOP REFINED OBSERVATORY HEADER -->
+  <header class="top-header" id="topHeader">
+    <div class="brand-badge" id="brandBadgeBtn" title="Linear Algebra Laboratory Home">
+      <div class="brand-icon">LA</div>
+      <div class="brand-text">
+        <span class="brand-title">LINEAR ALGEBRA LAB</span>
+        <span class="brand-sub">Explore mathematics through space</span>
+      </div>
+    </div>
+
+    <!-- Top Right Utility Controls Dock -->
+    <div class="top-controls-dock">
+      <button id="btnCommandPalette" class="dock-btn palette-btn" title="Command Palette (Ctrl+K or /)">
+        <span>⌘K</span> <span class="dock-btn-label">Search</span>
+      </button>
+      <button id="btnOpenExplorer" class="dock-btn" title="Open Experiment Explorer (E)">
+        <span>🧭</span> <span class="dock-btn-label">Explorer</span>
+      </button>
+      <button id="btnGridMenu" class="dock-btn" title="Two-Grid & Visual Settings (G)">
+        <span>📐</span> <span class="dock-btn-label">Grid</span>
+      </button>
+      <button id="btnAudioMenu" class="dock-btn" title="Space Ambient Soundtrack (M)">
+        <span id="audioDockIcon">♫</span> <span class="dock-btn-label">Ambient</span>
+      </button>
+      <button id="btnCameraMenu" class="dock-btn" title="Camera Views">
+        <span>🎥</span> <span class="dock-btn-label">View</span>
+      </button>
+      
+      <div class="dock-separator"></div>
+
+      <button id="btnInspectMode" class="dock-btn icon-only" title="Toggle 3D Object Inspect Mode">
+        <span>🔍</span>
+      </button>
+      <button id="btnShareLink" class="dock-btn icon-only" title="Share current experiment state (Copy link)">
+        <span>🔗</span>
+      </button>
+      <button id="btnCaptureScreenshot" class="dock-btn icon-only" title="Capture high-resolution screenshot">
+        <span>📸</span>
+      </button>
+      <button id="btnFocusMode" class="dock-btn icon-only" title="Focus Mode / Observatory Fullscreen (F)">
+        <span>⚡</span>
+      </button>
+      <button id="btnInfoModal" class="dock-btn icon-only" title="Mathematical Info & Code (I)">
+        <span>ⓘ</span>
+      </button>
+      <button id="btnSettingsModal" class="dock-btn icon-only" title="Laboratory Settings">
+        <span>⚙</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- EXIT FOCUS MODE FLOATING PILL -->
+  <button id="btnExitFocus" class="exit-focus-pill" style="display:none;" title="Exit Focus Mode (Esc or F)">
+    <span>✕</span> Exit Focus Mode
+  </button>
+
+  <!-- CHALLENGE MODE BANNER OVERLAY -->
+  <div id="challengeBanner" class="challenge-banner" style="display:none;">
+    <div class="challenge-badge">CHALLENGE</div>
+    <div class="challenge-info">
+      <span class="challenge-title" id="challengeTitle">Make vectors a and b perpendicular</span>
+      <span class="challenge-desc" id="challengeDesc">Adjust vector components until the dot product a · b = 0.0</span>
+    </div>
+    <div class="challenge-status" id="challengeStatus">
+      <span class="challenge-dot pending"></span>
+      <span id="challengeStatusText">Incomplete</span>
+    </div>
+  </div>
+
+  <!-- BOTTOM-LEFT EXPERIMENT STATUS & MODE SWITCHER -->
+  <div class="bottom-left-status" id="bottomLeftStatus">
+    <div class="mode-selector-strip">
+      <button class="mode-pill active" data-mode="explore" id="btnModeExplore">Explore</button>
+      <button class="mode-pill" data-mode="guided" id="btnModeGuided">Guided</button>
+      <button class="mode-pill" data-mode="challenge" id="btnModeChallenge">Challenge</button>
+      <button class="mode-pill notebook-pill" id="btnOpenNotebook" title="View Lab Notebook">📝 Notes</button>
+    </div>
+
+    <!-- Guided Mode Navigation Stepper (Visible in Guided Mode) -->
+    <div class="guided-stepper-row" id="guidedStepperRow" style="display:none;">
+      <button id="btnGuidedPrev" class="guided-nav-btn" title="Previous Experiment">‹ Prev</button>
+      <span class="guided-step-counter" id="guidedStepCounter">01 / 17</span>
+      <button id="btnGuidedNext" class="guided-nav-btn" title="Next Experiment">Next ›</button>
+    </div>
+
+    <div class="exp-indicator-card" id="expIndicatorCard" title="Click to switch experiments (E)">
+      <span class="exp-badge-num" id="statusBadgeNum">01</span>
+      <div class="exp-info-group">
+        <span class="exp-category-tag" id="statusCategoryTag">FOUNDATIONS</span>
+        <span class="exp-active-title" id="statusActiveTitle">A Vector</span>
+      </div>
+    </div>
+
+    <!-- Minimal Two-Grid Legend -->
+    <div class="grid-legend-strip" id="gridLegendStrip">
+      <div class="legend-item"><span class="legend-dot dot-orig"></span> Original Space</div>
+      <div class="legend-item"><span class="legend-dot dot-trans"></span> Transformed Space</div>
+    </div>
+  </div>
+
+  <!-- EQUATION / GEOMETRY MODE TOGGLE (Floating top-center) -->
+  <div class="view-mode-toggle" id="viewModeToggle">
+    <button class="view-mode-btn active" data-view="space" title="Pure 3D Space View">SPACE</button>
+    <button class="view-mode-btn" data-view="both" title="Balanced 3D Space + Math Formulas">BOTH</button>
+    <button class="view-mode-btn" data-view="math" title="Prominent Equation & Calculation View">MATH</button>
+  </div>
+
+  <!-- PROMINENT MATH HUD (Visible in MATH or BOTH modes) -->
+  <div class="prominent-math-hud" id="prominentMathHud" style="display:none;">
+    <div class="math-hud-header">
+      <span class="math-hud-title" id="mathHudTitle">Mathematical Breakdown</span>
+      <button id="btnCloseMathHud" class="panel-mini-btn">✕</button>
+    </div>
+    <div class="math-hud-formula" id="mathHudFormula">v = x·i + y·j + z·k</div>
+    <div class="math-hud-calc" id="mathHudCalc">|v| = √(3.0² + 2.0² + 1.0²) = 3.74</div>
+  </div>
+
+  <!-- BOTTOM-RIGHT CONTEXTUAL CONTROL DRAWER -->
+  <aside class="contextual-panel" id="contextualPanel">
+    <div class="panel-header" id="panelHeader">
+      <div class="panel-title-area">
+        <span id="panelHeaderIcon">⚙</span>
+        <span id="panelHeaderTitle">01 — A Vector</span>
+      </div>
+      <div class="panel-header-actions">
+        <button id="btnSaveObservation" class="panel-mini-btn" title="Save current observation to Lab Notebook">📝</button>
+        <button id="btnResetExpParams" class="panel-mini-btn" title="Reset parameters for this experiment (R)">↺</button>
+        <button id="btnTogglePanelCollapse" class="panel-mini-btn" title="Collapse/Expand Panel">▾</button>
+      </div>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <!-- Quick Presets -->
+      <div class="preset-strip" id="dynamicPresetStrip"></div>
+
+      <!-- Transformation Flow Scrub Timeline (Displayed for Matrix/Transform modules) -->
+      <div class="transformation-flow-box" id="flowScrubberBox" style="display:none;">
+        <div class="flow-header-row">
+          <span>Transformation Flow</span>
+          <span id="flowProgressBadge" style="font-family:var(--font-mono); color:var(--accent-indigo);">100% (M)</span>
+        </div>
+        <div class="flow-controls-row">
+          <button id="btnPlayFlow" class="flow-play-btn" title="Play / Pause Space Interpolation">▶</button>
+          <div class="slider-container" style="flex:1;">
+            <input type="range" id="sl_flowProgress" min="0" max="1" step="0.01" value="1">
+          </div>
+        </div>
+        <div class="flow-labels-row">
+          <span>Identity (I)</span>
+          <span>Matrix (M)</span>
+        </div>
+      </div>
+      
+      <!-- Contextual Manipulation Controls -->
+      <div id="dynamicControlsContainer"></div>
+
+      <!-- "What Changed?" Dynamic Space Analysis (Generated for Matrix modules) -->
+      <div id="dynamicSpaceAnalysisBox" style="display:none;"></div>
+      
+      <!-- Live Metrics Readout -->
+      <div class="metrics-box" id="dynamicMetricsBox"></div>
+    </div>
+  </aside>
+
+  <!-- CAMERA VIEW PRESETS POPOVER -->
+  <div class="popover-menu" id="cameraViewPopover">
+    <div class="popover-header">
+      <span>Camera Perspectives</span>
+    </div>
+    <div class="menu-list">
+      <button class="menu-item-btn" data-cam="isometric">
+        <span>📐 Isometric View</span>
+        <span class="shortcut-tag">Default</span>
+      </button>
+      <button class="menu-item-btn" data-cam="top">
+        <span>⬆ Top View (XY Plane)</span>
+        <span class="shortcut-tag">2D Flat</span>
+      </button>
+      <button class="menu-item-btn" data-cam="front">
+        <span>➡ Front View (XZ Plane)</span>
+        <span class="shortcut-tag">Elevation</span>
+      </button>
+      <button class="menu-item-btn" data-cam="side">
+        <span>↗ Side View (YZ Plane)</span>
+        <span class="shortcut-tag">Profile</span>
+      </button>
+      <div style="border-top:1px solid var(--border-subtle); margin:4px 0;"></div>
+      <button class="menu-item-btn" data-cam="reset">
+        <span>↺ Reset Camera (R)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- AUDIO POPOVER MENU -->
+  <div class="popover-menu" id="audioPopover">
+    <div class="popover-header">
+      <span>Ambient Space Synthesizer</span>
+      <span id="audioTrackStatus" style="color:var(--accent-indigo); font-size:0.75rem;">Off</span>
+    </div>
+    <div class="track-list">
+      <div class="track-option active" data-track="deep-space">
+        <span>1. Deep Space</span>
+        <span style="font-size:0.68rem; color:var(--text-muted);">55Hz Sub Drone</span>
+      </div>
+      <div class="track-option" data-track="orbital">
+        <span>2. Orbital</span>
+        <span style="font-size:0.68rem; color:var(--text-muted);">Pulsing Harmonics</span>
+      </div>
+      <div class="track-option" data-track="cosmic-drift">
+        <span>3. Cosmic Drift</span>
+        <span style="font-size:0.68rem; color:var(--text-muted);">Ethereal Shimmer</span>
+      </div>
+    </div>
+    <div class="audio-volume-row">
+      <span style="font-size:0.8rem;">🔊</span>
+      <div class="slider-container" style="flex:1;">
+        <input type="range" id="audioVolumeInput" min="0" max="1" step="0.05" value="0.3">
+      </div>
+      <span id="val_audioVolume" style="font-family:var(--font-mono); font-size:0.75rem; min-width:32px;">30%</span>
+    </div>
+    <button id="btnToggleAudioPlayback" class="btn-action primary" style="margin-top:10px; width:100%;">
+      Start Ambient Audio
+    </button>
+  </div>
+
+  <!-- TWO-GRID & VIEW SETTINGS POPOVER -->
+  <div class="popover-menu" id="gridPopover">
+    <div class="popover-header">
+      <span>Two-Grid & Visuals</span>
+    </div>
+    <div class="grid-mode-selector">
+      <button class="grid-mode-btn" data-gridmode="both">Compare Both</button>
+      <button class="grid-mode-btn" data-gridmode="orig">Original Only</button>
+      <button class="grid-mode-btn" data-gridmode="trans">Transformed Only</button>
+    </div>
+    <div class="toggle-option-row">
+      <span>Original Space Grid</span>
+      <label class="switch">
+        <input type="checkbox" id="chkOriginalGrid" checked>
+        <span class="switch-slider"></span>
+      </label>
+    </div>
+    <div class="toggle-option-row">
+      <span>Transformed Space Grid</span>
+      <label class="switch">
+        <input type="checkbox" id="chkTransformedGrid" checked>
+        <span class="switch-slider"></span>
+      </label>
+    </div>
+    <div class="toggle-option-row">
+      <span>Coordinate Planes</span>
+      <label class="switch">
+        <input type="checkbox" id="chkCoordinatePlanes">
+        <span class="switch-slider"></span>
+      </label>
+    </div>
+    <div class="toggle-option-row">
+      <span>Component Drop Lines</span>
+      <label class="switch">
+        <input type="checkbox" id="chkDropLines" checked>
+        <span class="switch-slider"></span>
+      </label>
+    </div>
+    <div class="toggle-option-row">
+      <span>Trajectory Ghost Trace</span>
+      <label class="switch">
+        <input type="checkbox" id="chkTraceMode">
+        <span class="switch-slider"></span>
+      </label>
+    </div>
+    <div style="margin-top:10px; border-top:1px solid var(--border-subtle); padding-top:10px;">
+      <button id="btnTransformationFlow" class="btn-action" style="width:100%;">
+        <span>⚡</span> Trigger Transformation Flow
+      </button>
+    </div>
+  </div>
+
+  <!-- SPOTLIGHT COMMAND PALETTE (Ctrl+K or /) -->
+  <div class="modal-backdrop" id="commandPaletteModal">
+    <div class="command-palette-card">
+      <div class="palette-input-box">
+        <span class="palette-search-icon">🔍</span>
+        <input type="text" id="paletteSearchInput" class="palette-input" placeholder="Type an experiment, matrix preset, or action..." autocomplete="off" spellcheck="false">
+        <span class="palette-shortcut-hint">ESC to close</span>
+      </div>
+      <div class="palette-results-list" id="paletteResultsList">
+        <!-- Dynamically rendered items -->
+      </div>
+      <div class="palette-footer">
+        <div class="palette-footer-tip"><span>↑↓</span> to navigate</div>
+        <div class="palette-footer-tip"><span>↵</span> to select</div>
+        <div class="palette-footer-tip"><span>ESC</span> to dismiss</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPERIMENT EXPLORER MODAL -->
+  <div class="modal-backdrop" id="explorerModal">
+    <div class="explorer-modal">
+      <div class="explorer-header">
+        <div class="explorer-title-area">
+          <h2>Experiment Explorer</h2>
+          <p>Choose any mathematical experiment in any order</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <input type="text" id="explorerSearchInput" class="explorer-search-input" placeholder="Filter experiments...">
+          <button id="btnCloseExplorer" class="panel-mini-btn" style="font-size:1.1rem;">✕</button>
+        </div>
+      </div>
+      <div class="explorer-body" id="explorerCardGrid">
+        <!-- 3 Columns populated: Foundations, Transformations, Computation -->
+      </div>
+    </div>
+  </div>
+
+  <!-- LAB NOTEBOOK MODAL -->
+  <div class="modal-backdrop" id="notebookModal">
+    <div class="notebook-modal">
+      <div class="notebook-header">
+        <div>
+          <h2>Laboratory Notebook</h2>
+          <p>Saved mathematical observations and spatial configurations</p>
+        </div>
+        <button id="btnCloseNotebook" class="panel-mini-btn" style="font-size:1.1rem;">✕</button>
+      </div>
+      <div class="notebook-body">
+        <div class="notebook-save-bar">
+          <input type="text" id="notebookNoteInput" class="notebook-input" placeholder="Add an observation note for the current state...">
+          <button id="btnSaveCurrentState" class="btn-action primary">Save Current State</button>
+        </div>
+        <div class="notebook-list" id="notebookList">
+          <!-- Saved items rendered here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="settings-modal">
+      <div class="settings-header">
+        <h2>Laboratory Settings</h2>
+        <button id="btnCloseSettings" class="panel-mini-btn" style="font-size:1.1rem;">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="setting-item">
+          <div class="setting-text">
+            <span class="setting-label">Reduced Motion</span>
+            <span class="setting-desc">Minimize camera transitions and particle movements</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chkReducedMotion">
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <div class="setting-text">
+            <span class="setting-label">Sparse Starfield</span>
+            <span class="setting-desc">Subtle background particle field for depth</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chkStarfield" checked>
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <div class="setting-text">
+            <span class="setting-label">Sound Effects (SFX)</span>
+            <span class="setting-desc">Subtle auditory feedback on matrix interactions</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chkSfx" checked>
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div style="margin-top:20px; border-top:1px solid var(--border-subtle); padding-top:15px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.75rem; color:var(--text-muted);">Reset all saved preferences & local storage</span>
+          <button id="btnClearStorage" class="btn-action" style="color:var(--axis-x);">Clear Data</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MATHEMATICAL INFO & NUMPY MODAL -->
+  <div class="modal-backdrop" id="infoModal">
+    <div class="info-modal">
+      <div class="info-modal-header">
+        <div>
+          <div class="exp-category-tag" id="infoCategoryTag">FOUNDATIONS</div>
+          <h2 class="info-title" id="infoTitle">A Vector</h2>
+          <p class="info-sub" id="infoSubtitle">Mathematical definition and geometric intuition.</p>
+        </div>
+        <button id="btnCloseInfo" class="panel-mini-btn" style="font-size:1.1rem;">✕</button>
+      </div>
+      <div class="formula-display-box" id="infoFormulaBox">
+        v = x·i + y·j + z·k
+      </div>
+      <div class="python-code-card">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.7rem; color:var(--text-muted);">
+          <span>NumPy Companion Implementation</span>
+          <span style="font-family:var(--font-mono); color:var(--accent-indigo);">linear_algebra_lab.py</span>
+        </div>
+        <pre><code id="infoPythonSnippet">import numpy as np
+v = np.array([3.0, 2.0, 1.0])
+length = np.linalg.norm(v)</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3D OBJECT INSPECT FLOATING HUD -->
+  <div id="inspectHud">
+    <div class="inspect-header">
+      <span id="inspectTargetName">Vector v</span>
+      <span id="inspectCloseBtn" style="cursor:pointer;">✕</span>
+    </div>
+    <div class="inspect-content" id="inspectContent">
+      Components: [3.0, 2.0, 1.0]<br>
+      Magnitude: 3.74
+    </div>
+  </div>
+
+  <!-- FIRST-TIME LANDING / LAB ENTRY OVERLAY -->
+  <div id="landingOverlay">
+    <div class="landing-hero">
+      <div class="landing-icon">LA</div>
+      <h1 class="landing-title">LINEAR ALGEBRA LAB</h1>
+      <p class="landing-desc">
+        A simulation-first mathematical observatory. Direct geometric manipulation of vectors, two-grid space deformation, matrices as spatial machines, and CPU hardware vectorization.
+      </p>
+      <div class="landing-domains">
+        <div class="domain-card" data-domain="vectors">
+          <span class="domain-icon">📐</span>
+          <span class="domain-title">Foundations</span>
+          <span class="domain-sub">01 – 08 Vectors & Geometry</span>
+        </div>
+        <div class="domain-card" data-domain="transformations">
+          <span class="domain-icon">🌀</span>
+          <span class="domain-title">Transformations</span>
+          <span class="domain-sub">09 – 14 Matrices & Space</span>
+        </div>
+        <div class="domain-card" data-domain="computation">
+          <span class="domain-icon">⚡</span>
+          <span class="domain-title">Computation</span>
+          <span class="domain-sub">15 – 17 SIMD & Hardware</span>
+        </div>
+      </div>
+      <button id="btnEnterLab" class="landing-enter-btn">
+        Enter the Lab →
+      </button>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast-msg" id="toastMsg">Geometric Insight</div>
+
+  <!-- MINIMAL BOTTOM HINT -->
+  <div class="bottom-hint" id="bottomHint">
+    Left-Drag: Rotate • Right-Drag: Pan • Scroll: Zoom • Drag Glowing Endpoints • ⌘K: Search
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
